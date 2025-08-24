@@ -10,13 +10,13 @@ class LlamaBindings {
   
   late DynamicLibrary _lib;
   
-  // FFI функції з правильними типами
-  late final int Function(Pointer<Utf8>, Pointer<LlamaModelParams>) _loadModelFn;
-  late final Pointer<LlamaContextStruct> Function(int) _createContextFn;
-  late final Pointer<LlamaTokenizedText> Function(Pointer<LlamaContextStruct>, Pointer<Utf8>) _tokenizeFn;
-  late final Pointer<Utf8> Function(Pointer<LlamaContextStruct>, Pointer<LlamaTokenizedText>, Pointer<LlamaInferenceParams>) _generateFn;
-  late final void Function(Pointer<LlamaContextStruct>) _freeContextFn;
-  late final void Function(Pointer<LlamaTokenizedText>) _freeTokensFn;
+  // FFI functions with correct types matching the native bindings
+  late final int Function(Pointer<Utf8>, Pointer<LlamaDartModelParams>) _loadModelFn;
+  late final Pointer<LlamaDartContext> Function(int) _createContextFn;
+  late final Pointer<LlamaDartTokens> Function(Pointer<LlamaDartContext>, Pointer<Utf8>) _tokenizeFn;
+  late final Pointer<Utf8> Function(Pointer<LlamaDartContext>, Pointer<LlamaDartTokens>, Pointer<LlamaDartInferenceParams>) _generateFn;
+  late final void Function(Pointer<LlamaDartContext>) _freeContextFn;
+  late final void Function(Pointer<LlamaDartTokens>) _freeTokensFn;
   late final void Function(Pointer<Utf8>) _freeStringFn;
   
   LlamaBindings._internal() {
@@ -29,51 +29,51 @@ class LlamaBindings {
       try {
         _lib = DynamicLibrary.open('libllama_bindings.so');
       } catch (e) {
-        throw Exception('Не вдалось завантажити нативну бібліотеку: $e');
+        throw Exception('Failed to load native library: $e');
       }
     } else {
-      throw UnsupportedError('Підтримується лише Android платформа');
+      throw UnsupportedError('Only Android platform is supported');
     }
   }
   
   void _initBindings() {
     try {
       _loadModelFn = _lib.lookupFunction<
-        Int32 Function(Pointer<Utf8>, Pointer<LlamaModelParams>),
-        int Function(Pointer<Utf8>, Pointer<LlamaModelParams>)
-      >('llama_load_model');
+        Int32 Function(Pointer<Utf8>, Pointer<LlamaDartModelParams>),
+        int Function(Pointer<Utf8>, Pointer<LlamaDartModelParams>)
+      >('llama_dart_load_model');
       
       _createContextFn = _lib.lookupFunction<
-        Pointer<LlamaContextStruct> Function(Int32),
-        Pointer<LlamaContextStruct> Function(int)
-      >('llama_create_context');
+        Pointer<LlamaDartContext> Function(Int32),
+        Pointer<LlamaDartContext> Function(int)
+      >('llama_dart_create_context');
       
       _tokenizeFn = _lib.lookupFunction<
-        Pointer<LlamaTokenizedText> Function(Pointer<LlamaContextStruct>, Pointer<Utf8>),
-        Pointer<LlamaTokenizedText> Function(Pointer<LlamaContextStruct>, Pointer<Utf8>)
-      >('llama_tokenize');
+        Pointer<LlamaDartTokens> Function(Pointer<LlamaDartContext>, Pointer<Utf8>),
+        Pointer<LlamaDartTokens> Function(Pointer<LlamaDartContext>, Pointer<Utf8>)
+      >('llama_dart_tokenize');
       
       _generateFn = _lib.lookupFunction<
-        Pointer<Utf8> Function(Pointer<LlamaContextStruct>, Pointer<LlamaTokenizedText>, Pointer<LlamaInferenceParams>),
-        Pointer<Utf8> Function(Pointer<LlamaContextStruct>, Pointer<LlamaTokenizedText>, Pointer<LlamaInferenceParams>)
-      >('llama_generate');
+        Pointer<Utf8> Function(Pointer<LlamaDartContext>, Pointer<LlamaDartTokens>, Pointer<LlamaDartInferenceParams>),
+        Pointer<Utf8> Function(Pointer<LlamaDartContext>, Pointer<LlamaDartTokens>, Pointer<LlamaDartInferenceParams>)
+      >('llama_dart_generate');
       
       _freeContextFn = _lib.lookupFunction<
-        Void Function(Pointer<LlamaContextStruct>),
-        void Function(Pointer<LlamaContextStruct>)
-      >('llama_free_context');
+        Void Function(Pointer<LlamaDartContext>),
+        void Function(Pointer<LlamaDartContext>)
+      >('llama_dart_free_context');
       
       _freeTokensFn = _lib.lookupFunction<
-        Void Function(Pointer<LlamaTokenizedText>),
-        void Function(Pointer<LlamaTokenizedText>)
-      >('llama_free_tokens');
+        Void Function(Pointer<LlamaDartTokens>),
+        void Function(Pointer<LlamaDartTokens>)
+      >('llama_dart_free_tokens');
       
       _freeStringFn = _lib.lookupFunction<
         Void Function(Pointer<Utf8>),
         void Function(Pointer<Utf8>)
-      >('llama_free_string');
+      >('llama_dart_free_string');
     } catch (e) {
-      throw Exception('Не вдалось ініціалізувати FFI функції: $e');
+      throw Exception('Failed to initialize FFI functions: $e');
     }
   }
   
@@ -85,7 +85,7 @@ class LlamaBindings {
     int nBatch = 512,
   }) {
     final pathPtr = path.toNativeUtf8();
-    final params = calloc<LlamaModelParams>();
+    final params = calloc<LlamaDartModelParams>();
     
     params.ref.quantizationType = quantizationType;
     params.ref.nGpuLayers = nGpuLayers;
@@ -96,35 +96,35 @@ class LlamaBindings {
     try {
       return _loadModelFn(pathPtr, params);
     } catch (e) {
-      throw Exception('Помилка завантаження моделі: $e');
+      throw Exception('Error loading model: $e');
     } finally {
       calloc.free(pathPtr);
       calloc.free(params);
     }
   }
   
-  Pointer<LlamaContextStruct> createContext(int modelId) {
+  Pointer<LlamaDartContext> createContext(int modelId) {
     try {
       return _createContextFn(modelId);
     } catch (e) {
-      throw Exception('Помилка створення контексту: $e');
+      throw Exception('Error creating context: $e');
     }
   }
   
-  Pointer<LlamaTokenizedText> tokenize(Pointer<LlamaContextStruct> context, String text) {
+  Pointer<LlamaDartTokens> tokenize(Pointer<LlamaDartContext> context, String text) {
     final textPtr = text.toNativeUtf8();
     try {
       return _tokenizeFn(context, textPtr);
     } catch (e) {
-      throw Exception('Помилка токенізації: $e');
+      throw Exception('Error tokenizing text: $e');
     } finally {
       calloc.free(textPtr);
     }
   }
   
   String generate(
-    Pointer<LlamaContextStruct> context,
-    Pointer<LlamaTokenizedText> tokens, {
+    Pointer<LlamaDartContext> context,
+    Pointer<LlamaDartTokens> tokens, {
     int maxTokens = 256,
     int contextLength = 2048,
     double temperature = 0.8,
@@ -133,7 +133,7 @@ class LlamaBindings {
     double frequencyPenalty = 0.0,
     double presencePenalty = 0.0,
   }) {
-    final params = calloc<LlamaInferenceParams>();
+    final params = calloc<LlamaDartInferenceParams>();
     
     params.ref.maxTokens = maxTokens;
     params.ref.contextLength = contextLength;
@@ -149,28 +149,28 @@ class LlamaBindings {
       _freeStringFn(resultPtr);
       return result;
     } catch (e) {
-      throw Exception('Помилка генерації тексту: $e');
+      throw Exception('Error generating text: $e');
     } finally {
       calloc.free(params);
     }
   }
   
-  void freeContext(Pointer<LlamaContextStruct> context) {
+  void freeContext(Pointer<LlamaDartContext> context) {
     try {
       _freeContextFn(context);
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Попередження: не вдалось звільнити контекст: $e');
+        debugPrint('Warning: failed to free context: $e');
       }
     }
   }
   
-  void freeTokenizedText(Pointer<LlamaTokenizedText> tokens) {
+  void freeTokenizedText(Pointer<LlamaDartTokens> tokens) {
     try {
       _freeTokensFn(tokens);
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Попередження: не вдалось звільнити токени: $e');
+        debugPrint('Warning: failed to free tokens: $e');
       }
     }
   }

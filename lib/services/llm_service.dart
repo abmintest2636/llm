@@ -14,7 +14,7 @@ class LlmService {
   
   late final LlamaBindings _bindings;
   int? _currentModelId;
-  Pointer<LlamaContextStruct>? _currentContext;
+  Pointer<LlamaDartContext>? _currentContext;
   int _contextLength = 2048;
   final Map<String, StreamController<String>> _generationControllers = {};
   
@@ -32,7 +32,7 @@ class LlmService {
   }
   
   Future<bool> loadModel(LlmModel model) async {
-    // Перевіримо, чи потрібно розвантажувати поточну модель
+    // Check if we need to unload the current model
     if (_currentModelId != null && _currentContext != null) {
       _bindings.freeContext(_currentContext!);
       _currentContext = null;
@@ -42,38 +42,38 @@ class LlmService {
     final modelPath = '${modelsDir.path}/${model.id}.bin';
     
     try {
-      // Завантажуємо модель з FFI інтерфейсу
+      // Load the model via the FFI interface
       final quantType = model.quantization == QuantizationType.bit4 ? 4 : 8;
       
       _currentModelId = _bindings.loadModel(
         modelPath,
         quantizationType: quantType,
-        nThreads: 4, // Можна зробити налаштованим
+        nThreads: 4, // Can be made configurable
       );
       
       if (_currentModelId! <= 0) {
         return false;
       }
       
-      // Створюємо контекст для моделі
+      // Create a context for the model
       _currentContext = _bindings.createContext(_currentModelId!);
       return _currentContext != null;
     } catch (e) {
-      debugPrint('Помилка завантаження моделі: $e');
+      debugPrint('Error loading model: $e');
       return false;
     }
   }
   
   Future<String> generateResponse(String prompt, {int maxTokens = 256}) async {
     if (_currentModelId == null || _currentContext == null) {
-      throw Exception('Модель не завантажена');
+      throw Exception('Model not loaded');
     }
     
     try {
-      // Токенізуємо вхідний текст
+      // Tokenize the input text
       final tokens = _bindings.tokenize(_currentContext!, prompt);
       
-      // Генеруємо відповідь
+      // Generate the response
       final result = _bindings.generate(
         _currentContext!,
         tokens,
@@ -83,17 +83,17 @@ class LlmService {
         topP: 0.9,
       );
       
-      // Звільняємо пам'ять токенів
+      // Free the token memory
       _bindings.freeTokenizedText(tokens);
       
       return result;
     } catch (e) {
-      debugPrint('Помилка генерації відповіді: $e');
-      return 'Помилка генерації відповіді: $e';
+      debugPrint('Error generating response: $e');
+      return 'Error generating response: $e';
     }
   }
   
-  // Потокова генерація відповіді для відображення у реальному часі
+  // Streamed response generation for real-time display
   Stream<String> generateResponseStream(String prompt, {int maxTokens = 256}) {
     final streamId = DateTime.now().millisecondsSinceEpoch.toString();
     final controller = StreamController<String>();
@@ -101,17 +101,17 @@ class LlmService {
     
     Future<void> generate() async {
       if (_currentModelId == null || _currentContext == null) {
-        controller.addError('Модель не завантажена');
+        controller.addError('Model not loaded');
         await controller.close();
         _generationControllers.remove(streamId);
         return;
       }
       
       try {
-        // Поки що використовуємо синхронну генерацію та емулюємо потокову
+        // For now, use synchronous generation and emulate streaming
         String result = await generateResponse(prompt, maxTokens: maxTokens);
         
-        // Емулюємо потокову генерацію
+        // Emulate streaming generation
         String accumulated = '';
         for (int i = 0; i < result.length; i++) {
           if (controller.isClosed) break;
@@ -122,7 +122,7 @@ class LlmService {
         
         await controller.close();
       } catch (e) {
-        controller.addError('Помилка генерації: $e');
+        controller.addError('Error during generation: $e');
         await controller.close();
       } finally {
         _generationControllers.remove(streamId);
@@ -160,10 +160,10 @@ class LlmService {
     return modelsDir;
   }
   
-  // Мок-метод для тестування без реальної моделі
+  // Mock method for testing without a real model
   Future<String> generateMockResponse(String prompt) async {
     await Future.delayed(const Duration(seconds: 2));
-    return "Це тестова відповідь для запиту: $prompt. "
-           "У реальній версії, тут буде відповідь від LLM моделі.";
+    return "This is a test response for the prompt: $prompt. "
+           "In a real version, this would be a response from the LLM model.";
   }
 }
