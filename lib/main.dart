@@ -12,7 +12,7 @@ import 'widgets/navigation_drawer.dart' as nav;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Ініціалізація сервісів
+  // Initialize services
   final chatStorage = ChatStorage();
   await chatStorage.init();
   
@@ -25,9 +25,9 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => chatStorage),
-        ChangeNotifierProvider(create: (_) => modelManager),
-        Provider(create: (_) => llmService),
+        ChangeNotifierProvider.value(value: chatStorage),
+        ChangeNotifierProvider.value(value: modelManager),
+        Provider.value(value: llmService),
       ],
       child: const MyApp(),
     ),
@@ -98,9 +98,56 @@ class _AppScaffoldState extends State<AppScaffold> {
     });
   }
 
+  AppBar _buildAppBar(BuildContext context) {
+    final chatStorage = Provider.of<ChatStorage>(context);
+
+    switch (_selectedIndex) {
+      case 0:
+        return AppBar(
+          title: Text(chatStorage.currentChat?.title ?? 'Chat'),
+          actions: [
+            PopupMenuButton(
+              icon: const Icon(Icons.more_vert),
+              itemBuilder: (context) => [
+                if (chatStorage.currentChat != null) ...[
+                  PopupMenuItem(
+                    onTap: () {
+                      chatStorage.archiveChat(chatStorage.currentChat!.id!, true);
+                    },
+                    child: const Text('Archive Chat'),
+                  ),
+                  PopupMenuItem(
+                    onTap: () {
+                      chatStorage.deleteChat(chatStorage.currentChat!.id!);
+                    },
+                    child: const Text('Delete Chat'),
+                  ),
+                ],
+                PopupMenuItem(
+                  onTap: () {
+                    chatStorage.createChat('New Chat');
+                  },
+                  child: const Text('New Chat'),
+                ),
+              ],
+            ),
+          ],
+        );
+      case 1:
+        return AppBar(title: const Text('Models'));
+      case 2:
+        return AppBar(title: const Text('Settings'));
+      case 3:
+        return AppBar(title: const Text('Info'));
+      default:
+        return AppBar();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: _buildAppBar(context),
       body: _screens[_selectedIndex],
       drawer: nav.NavigationDrawer(
         selectedIndex: _selectedIndex,

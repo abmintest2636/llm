@@ -1,6 +1,7 @@
 enum ModelStatus {
   notDownloaded,
   downloading,
+  finalizing,
   downloaded,
   active,
   error,

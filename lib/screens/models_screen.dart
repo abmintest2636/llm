@@ -8,38 +8,30 @@ class ModelsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Моделі LLM'),
-      ),
-      body: Consumer<ModelManager>(
-        builder: (context, modelManager, child) {
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: modelManager.models.length,
-            itemBuilder: (context, index) {
-              final model = modelManager.models[index];
-              return ModelCard(model: model);
-            },
-          );
-        },
-      ),
+    return Consumer<ModelManager>(
+      builder: (context, modelManager, child) {
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: modelManager.models.length,
+          itemBuilder: (context, index) {
+            final model = modelManager.models[index];
+            return ModelCard(model: model);
+          },
+        );
+      },
     );
   }
 }
 
 class ModelCard extends StatelessWidget {
   final LlmModel model;
-  
-  const ModelCard({
-    super.key,
-    required this.model,
-  });
-  
+
+  const ModelCard({super.key, required this.model});
+
   @override
   Widget build(BuildContext context) {
     final modelManager = Provider.of<ModelManager>(context, listen: false);
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
@@ -51,9 +43,9 @@ class ModelCard extends StatelessWidget {
               children: [
                 Icon(
                   Icons.model_training,
-                  color: model.status == ModelStatus.active 
-                    ? Colors.green 
-                    : Colors.blue,
+                  color: model.status == ModelStatus.active
+                      ? Colors.green
+                      : Colors.blue,
                   size: 28,
                 ),
                 const SizedBox(width: 12),
@@ -70,10 +62,7 @@ class ModelCard extends StatelessWidget {
                       ),
                       Text(
                         _getSizeString(model.size),
-                        style: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Colors.grey[400], fontSize: 14),
                       ),
                     ],
                   ),
@@ -89,11 +78,8 @@ class ModelCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Text(
-                      'Активна',
-                      style: TextStyle(
-                        color: Colors.green,
-                        fontSize: 12,
-                      ),
+                      'Active',
+                      style: TextStyle(color: Colors.green, fontSize: 12),
                     ),
                   ),
               ],
@@ -101,62 +87,76 @@ class ModelCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(model.description),
             const SizedBox(height: 12),
-            
-            // Прогрес завантаження
-            if (model.status == ModelStatus.downloading)
+
+            // Download progress
+            if (model.status == ModelStatus.downloading ||
+                model.status == ModelStatus.finalizing)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   LinearProgressIndicator(
                     value: model.downloadProgress,
                     backgroundColor: Colors.grey[800],
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Colors.blue,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Завантаження: ${(model.downloadProgress * 100).toInt()}%',
+                    model.status == ModelStatus.downloading
+                        ? 'Downloading: ${(model.downloadProgress * 100).toInt()}%'
+                        : 'Finalizing...',
                     style: TextStyle(color: Colors.grey[400], fontSize: 12),
                   ),
                   const SizedBox(height: 12),
                 ],
               ),
-            
-            // Кнопки
+
+            // Buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                if (model.status == ModelStatus.downloaded || model.status == ModelStatus.active)
+                if (model.status == ModelStatus.downloaded ||
+                    model.status == ModelStatus.active)
                   OutlinedButton(
                     onPressed: () async {
                       await modelManager.deleteModel(model.id);
                     },
-                    child: const Text('Видалити'),
+                    child: const Text('Delete'),
                   ),
                 const SizedBox(width: 8),
-                if (model.status == ModelStatus.notDownloaded || model.status == ModelStatus.error)
+                if (model.status == ModelStatus.notDownloaded ||
+                    model.status == ModelStatus.error)
                   ElevatedButton(
                     onPressed: () async {
                       await modelManager.downloadModel(model.id);
                     },
-                    child: const Text('Завантажити'),
+                    child: const Text('Download'),
                   ),
                 if (model.status == ModelStatus.downloading)
+                  ElevatedButton(
+                    onPressed: () async {
+                      await modelManager.cancelDownload(model.id);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                if (model.status == ModelStatus.finalizing)
                   const ElevatedButton(
                     onPressed: null,
-                    child: Text('Завантаження...'),
+                    child: Text('Finalizing...'),
                   ),
                 if (model.status == ModelStatus.downloaded)
                   ElevatedButton(
                     onPressed: () async {
                       await modelManager.setActiveModel(model.id);
                     },
-                    child: const Text('Активувати'),
+                    child: const Text('Activate'),
                   ),
                 if (model.status == ModelStatus.active)
-                  const ElevatedButton(
-                    onPressed: null,
-                    child: Text('Активна'),
-                  ),
+                  const ElevatedButton(onPressed: null, child: Text('Active')),
               ],
             ),
           ],
@@ -164,7 +164,7 @@ class ModelCard extends StatelessWidget {
       ),
     );
   }
-  
+
   String _getSizeString(int sizeInBytes) {
     if (sizeInBytes < 1024 * 1024) {
       return '${(sizeInBytes / 1024).toStringAsFixed(2)} KB';

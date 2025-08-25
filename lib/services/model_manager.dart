@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
@@ -9,6 +10,7 @@ class ModelManager extends ChangeNotifier {
   List<LlmModel> _models = [];
   String? _activeModelId;
   late SharedPreferences _prefs;
+  final Map<String, StreamSubscription> _downloadSubscriptions = {};
   
   List<LlmModel> get models => _models;
   
@@ -25,43 +27,35 @@ class ModelManager extends ChangeNotifier {
     _prefs = await SharedPreferences.getInstance();
     _activeModelId = _prefs.getString('active_model_id');
     
-    // Додавання визначених моделей
+    // Add pre-defined models
     _models = [
       LlmModel(
-        id: 'gemma-1b-4bit',
-        name: 'Gemma 1B (4-bit)',
-        description: 'Легка модель Gemma, оптимізована для мобільних пристроїв.',
-        url: 'https://example.com/models/gemma-1b-4bit.bin',
-        size: 256 * 1024 * 1024, // ~256 MB
+        id: 'gemma-3n-E2B-it-Q4_K_M',
+        name: 'Gemma 3n E2B It (4-bit)',
+        description: 'A 3rd generation, lightweight, state-of-the-art open model from Google.',
+        url: 'https://huggingface.co/unsloth/gemma-3n-E2B-it-GGUF/resolve/main/gemma-3n-E2B-it-Q4_K_M.gguf?download=true',
+        size: 3030000000, // ~3.03 GB
         quantization: QuantizationType.bit4,
       ),
       LlmModel(
-        id: 'gemma-1b-8bit',
-        name: 'Gemma 1B (8-bit)',
-        description: 'Модель Gemma з вищою точністю.',
-        url: 'https://example.com/models/gemma-1b-8bit.bin',
-        size: 512 * 1024 * 1024, // ~512 MB
-        quantization: QuantizationType.bit8,
-      ),
-      LlmModel(
-        id: 'phi-3-8b-4bit',
-        name: 'Phi 3.8B (4-bit)',
-        description: 'Модель Phi для складніших завдань.',
-        url: 'https://example.com/models/phi-3-8b-4bit.bin',
-        size: 1024 * 1024 * 1024, // ~1 GB
+        id: 'phi-3-mini-4k-instruct-q4',
+        name: 'Phi-3 Mini Instruct (4-bit)',
+        description: 'A 3.8B parameter, lightweight, state-of-the-art open model from Microsoft.',
+        url: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf?download=true',
+        size: 2390000000, // ~2.39 GB
         quantization: QuantizationType.bit4,
       ),
       LlmModel(
-        id: 'phi-3-8b-8bit',
-        name: 'Phi 3.8B (8-bit)',
-        description: 'Модель Phi з вищою точністю.',
-        url: 'https://example.com/models/phi-3-8b-8bit.bin',
-        size: 2048 * 1024 * 1024, // ~2 GB
-        quantization: QuantizationType.bit8,
+        id: 'tiny-llm-q5_k_m',
+        name: 'TinyLLM (Q5_K_M)',
+        description: 'A very small model for testing purposes.',
+        url: 'https://huggingface.co/aimlresearch2023/Tiny-LLM-Q5_K_M-GGUF/resolve/main/tiny-llm-q5_k_m.gguf?download=true',
+        size: 12400000, // ~12.4 MB
+        quantization: QuantizationType.bit4,
       ),
     ];
     
-    // Перевірка, які моделі вже завантажені
+    // Check which models are already downloaded
     await _checkDownloadedModels();
   }
   
@@ -103,7 +97,7 @@ class ModelManager extends ChangeNotifier {
     final modelsDir = await _getModelsDirectory();
     final modelFile = File('${modelsDir.path}/${model.id}.bin');
     
-    // Оновлення статусу моделі на "завантажується"
+    // Update model status to "downloading"
     _models[modelIndex] = model.copyWith(
       status: ModelStatus.downloading,
       downloadProgress: 0.0,
@@ -120,7 +114,7 @@ class ModelManager extends ChangeNotifier {
         final sink = modelFile.openWrite();
         int received = 0;
         
-        final subscription = response.stream.listen(
+        _downloadSubscriptions[modelId] = response.stream.listen(
           (chunk) {
             sink.add(chunk);
             received += chunk.length;
@@ -135,11 +129,19 @@ class ModelManager extends ChangeNotifier {
             }
           },
           onDone: () async {
+            _models[modelIndex] = model.copyWith(
+              status: ModelStatus.finalizing,
+              downloadProgress: 1.0,
+            );
+            notifyListeners();
+
             await sink.close();
+
             _models[modelIndex] = model.copyWith(
               status: ModelStatus.downloaded,
               downloadProgress: 1.0,
             );
+            _downloadSubscriptions.remove(modelId);
             notifyListeners();
           },
           onError: (_) async {
@@ -148,13 +150,11 @@ class ModelManager extends ChangeNotifier {
             _models[modelIndex] = model.copyWith(
               status: ModelStatus.error,
             );
+            _downloadSubscriptions.remove(modelId);
             notifyListeners();
           },
           cancelOnError: true,
         );
-        
-        // Чекаємо завершення завантаження
-        await subscription.asFuture();
       } else {
         _models[modelIndex] = model.copyWith(
           status: ModelStatus.error,
@@ -167,6 +167,30 @@ class ModelManager extends ChangeNotifier {
       );
       notifyListeners();
       rethrow;
+    }
+  }
+
+  Future<void> cancelDownload(String modelId) async {
+    final subscription = _downloadSubscriptions[modelId];
+    if (subscription != null) {
+      await subscription.cancel();
+      _downloadSubscriptions.remove(modelId);
+
+      // Clean up partial file
+      final modelIndex = _models.indexWhere((m) => m.id == modelId);
+      if (modelIndex != -1) {
+        final model = _models[modelIndex];
+        final modelsDir = await _getModelsDirectory();
+        final modelFile = File('${modelsDir.path}/${model.id}.bin');
+        if (await modelFile.exists()) {
+          await modelFile.delete();
+        }
+        _models[modelIndex] = model.copyWith(
+          status: ModelStatus.notDownloaded,
+          downloadProgress: 0.0,
+        );
+        notifyListeners();
+      }
     }
   }
   
@@ -201,12 +225,12 @@ class ModelManager extends ChangeNotifier {
     final modelIndex = _models.indexWhere((m) => m.id == modelId);
     if (modelIndex == -1) return false;
     
-    // Перевірка, чи модель завантажена
+    // Check if the model is downloaded
     if (_models[modelIndex].status != ModelStatus.downloaded) {
       return false;
     }
     
-    // Оновлення попередньої активної моделі
+    // Update the previous active model
     if (_activeModelId != null) {
       final oldActiveIndex = _models.indexWhere((m) => m.id == _activeModelId);
       if (oldActiveIndex != -1) {
@@ -216,7 +240,7 @@ class ModelManager extends ChangeNotifier {
       }
     }
     
-    // Встановлення нової активної моделі
+    // Set the new active model
     _models[modelIndex] = _models[modelIndex].copyWith(
       status: ModelStatus.active,
     );
