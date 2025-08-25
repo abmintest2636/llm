@@ -5,12 +5,16 @@ import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/llm_model.dart';
+import 'llm_service.dart';
 
 class ModelManager extends ChangeNotifier {
+  final LlmService llmService;
   List<LlmModel> _models = [];
   String? _activeModelId;
   late SharedPreferences _prefs;
   final Map<String, StreamSubscription> _downloadSubscriptions = {};
+
+  ModelManager({required this.llmService});
   
   List<LlmModel> get models => _models;
   
@@ -225,11 +229,29 @@ class ModelManager extends ChangeNotifier {
     final modelIndex = _models.indexWhere((m) => m.id == modelId);
     if (modelIndex == -1) return false;
     
+    final model = _models[modelIndex];
+
     // Check if the model is downloaded
-    if (_models[modelIndex].status != ModelStatus.downloaded) {
+    if (model.status != ModelStatus.downloaded) {
       return false;
     }
     
+    // Set status to activating
+    _models[modelIndex] = model.copyWith(status: ModelStatus.activating);
+    notifyListeners();
+
+    // Load the model into the LLM service
+    final modelsDir = await _getModelsDirectory();
+    final modelPath = '${modelsDir.path}/${model.id}.bin';
+    final success = await llmService.loadModel(model);
+
+    if (!success) {
+      // If loading fails, revert status to downloaded
+      _models[modelIndex] = model.copyWith(status: ModelStatus.downloaded);
+      notifyListeners();
+      return false;
+    }
+
     // Update the previous active model
     if (_activeModelId != null) {
       final oldActiveIndex = _models.indexWhere((m) => m.id == _activeModelId);
@@ -241,10 +263,7 @@ class ModelManager extends ChangeNotifier {
     }
     
     // Set the new active model
-    _models[modelIndex] = _models[modelIndex].copyWith(
-      status: ModelStatus.active,
-    );
-    
+    _models[modelIndex] = model.copyWith(status: ModelStatus.active);
     _activeModelId = modelId;
     await _prefs.setString('active_model_id', modelId);
     
