@@ -6,6 +6,10 @@ import '../services/chat_storage.dart';
 import '../services/llm_service.dart';
 import '../services/model_manager.dart';
 import '../widgets/chat_bubble.dart';
+import '../widgets/navigation_drawer.dart' as nav;
+import 'models_screen.dart';
+import 'settings_screen.dart';
+import 'info_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -47,7 +51,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _createNewChat() async {
     final chatStorage = Provider.of<ChatStorage>(context, listen: false);
-    final newChat = await chatStorage.createChat('Новий чат');
+    final newChat = await chatStorage.createChat('New Chat');
     setState(() {
       _currentChat = newChat;
     });
@@ -89,7 +93,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (modelManager.activeModel == null) {
       await chatStorage.addMessage(
         _currentChat!.id!, 
-        "Помилка: Спочатку завантажте і активуйте модель у розділі 'Моделі'.", 
+        "Error: Please load and activate a model in the 'Models' section first.",
         false
       );
       _scrollToBottom();
@@ -128,7 +132,7 @@ class _ChatScreenState extends State<ChatScreen> {
         onError: (error) async {
           await chatStorage.addMessage(
             _currentChat!.id!, 
-            "Помилка генерації відповіді: $error", 
+            "Error generating response: $error",
             false
           );
           setState(() {
@@ -141,7 +145,7 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       await chatStorage.addMessage(
         _currentChat!.id!, 
-        "Помилка генерації відповіді: ${e.toString()}", 
+        "Error generating response: ${e.toString()}",
         false
       );
       setState(() {
@@ -152,17 +156,35 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  void _onItemTapped(int index) {
+    Navigator.pop(context); // Close the drawer
+    if (index == 0) return; // Already on chat screen
+
+    Widget page;
+    switch (index) {
+      case 1:
+        page = const ModelsScreen();
+        break;
+      case 2:
+        page = const SettingsScreen();
+        break;
+      case 3:
+        page = const InfoScreen();
+        break;
+      default:
+        return;
+    }
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => page),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_currentChat?.title ?? 'Чат'),
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
+        title: Text(_currentChat?.title ?? 'Chat'),
         actions: [
           PopupMenuButton(
             icon: const Icon(Icons.more_vert),
@@ -180,7 +202,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       _createNewChat();
                     }
                   },
-                  child: const Text('Архівувати чат'),
+                  child: const Text('Archive Chat'),
                 ),
                 PopupMenuItem(
                   onTap: () async {
@@ -194,16 +216,20 @@ class _ChatScreenState extends State<ChatScreen> {
                       _createNewChat();
                     }
                   },
-                  child: const Text('Видалити чат'),
+                  child: const Text('Delete Chat'),
                 ),
               ],
               PopupMenuItem(
                 onTap: _createNewChat,
-                child: const Text('Новий чат'),
+                child: const Text('New Chat'),
               ),
             ],
           ),
         ],
+      ),
+      drawer: nav.NavigationDrawer(
+        selectedIndex: 0,
+        onItemTapped: _onItemTapped,
       ),
       body: Column(
         children: [
@@ -258,14 +284,14 @@ class _ChatScreenState extends State<ChatScreen> {
               builder: (context, chatStorage, child) {
                 if (_currentChat == null) {
                   return const Center(
-                    child: Text('Створіть новий чат, щоб почати спілкування'),
+                    child: Text('Create a new chat to start talking'),
                   );
                 }
                 
                 final chat = chatStorage.getChatById(_currentChat!.id!);
                 if (chat == null) {
                   return const Center(
-                    child: Text('Чат не знайдено'),
+                    child: Text('Chat not found'),
                   );
                 }
                 
@@ -301,7 +327,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 ? AnimatedTextKit(
                                     animatedTexts: [
                                       WavyAnimatedText(
-                                        'Генерація відповіді...',
+                                        'Generating response...',
                                         textStyle: const TextStyle(
                                           color: Colors.white,
                                         ),
@@ -358,7 +384,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: TextField(
                     controller: _textController,
                     decoration: InputDecoration(
-                      hintText: 'Напишіть повідомлення...',
+                      hintText: 'Write a message...',
                       hintStyle: TextStyle(color: Colors.grey[500]),
                       filled: true,
                       fillColor: Colors.grey[800],
@@ -396,10 +422,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _createNewChat,
-        child: const Icon(Icons.add),
       ),
     );
   }

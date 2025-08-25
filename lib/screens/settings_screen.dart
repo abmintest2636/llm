@@ -47,14 +47,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _defaultQuantization == QuantizationType.bit8 ? 8 : 4
     );
     
-    // Оновлення сервісу LLM з новими налаштуваннями
+    // Update the LLM service with the new settings
     if (mounted) {
       final llmService = Provider.of<LlmService>(context, listen: false);
       llmService.setContextLength(_contextLength);
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Налаштування збережено'),
+          content: Text('Settings saved'),
           backgroundColor: Colors.green,
         ),
       );
@@ -65,12 +65,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Видалити всі чати?'),
-        content: const Text('Ця дія незворотня. Всі чати будуть видалені.'),
+        title: const Text('Delete all chats?'),
+        content: const Text('This action is irreversible. All chats will be deleted.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Скасувати'),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () {
@@ -83,7 +83,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 chatStorage.clearAllChats();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Всі чати видалено'),
+                    content: Text('All chats deleted'),
                   ),
                 );
               }
@@ -91,7 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: TextButton.styleFrom(
               foregroundColor: Colors.red,
             ),
-            child: const Text('Видалити'),
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -101,8 +101,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Settings'),
+        ),
+        body: const Center(
           child: CircularProgressIndicator(),
         ),
       );
@@ -110,7 +113,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Налаштування'),
+        title: const Text('Settings'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -122,7 +125,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Контекст',
+                    'Context',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -130,7 +133,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Довжина контексту: $_contextLength токенів',
+                    'Context Length: $_contextLength tokens',
                     style: TextStyle(color: Colors.grey[300]),
                   ),
                   Slider(
@@ -147,7 +150,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Більший контекст дозволяє моделі "пам\'ятати" більше тексту, але використовує більше пам\'яті та може працювати повільніше.',
+                    'A larger context allows the model to "remember" more text, but uses more memory and may run slower.',
                     style: TextStyle(
                       color: Colors.grey[500],
                       fontSize: 12,
@@ -167,36 +170,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Квантизація моделі',
+                    'Model Quantization',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 16),
-                  RadioListTile<QuantizationType>(
-                    title: const Text('4-bit (швидше, але менш точно)'),
-                    value: QuantizationType.bit4,
+                  RadioGroup<QuantizationType>(
                     groupValue: _defaultQuantization,
                     onChanged: (value) {
                       setState(() {
                         _defaultQuantization = value!;
                       });
                     },
-                  ),
-                  RadioListTile<QuantizationType>(
-                    title: const Text('8-bit (точніше, але повільніше)'),
-                    value: QuantizationType.bit8,
-                    groupValue: _defaultQuantization,
-                    onChanged: (value) {
-                      setState(() {
-                        _defaultQuantization = value!;
-                      });
-                    },
+                    child: Column(
+                      children: [
+                        RadioListTile<QuantizationType>(
+                          title: const Text('4-bit (faster, less precise)'),
+                          value: QuantizationType.bit4,
+                        ),
+                        RadioListTile<QuantizationType>(
+                          title: const Text('8-bit (more precise, slower)'),
+                          value: QuantizationType.bit8,
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Це налаштування за замовчуванням для нових моделей. Нижча бітність (4-bit) означає менше використання пам\'яті, але може знизити якість відповідей.',
+                    'This is the default setting for new models. Lower bitness (4-bit) means less memory usage, but may reduce the quality of responses.',
                     style: TextStyle(
                       color: Colors.grey[500],
                       fontSize: 12,
@@ -216,7 +219,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Історія чатів',
+                    'Chat History',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -224,9 +227,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 16),
                   SwitchListTile(
-                    title: const Text('Зберігати історію чатів'),
+                    title: const Text('Save chat history'),
                     subtitle: Text(
-                      'Історія чатів буде збережена між сесіями',
+                      'Chat history will be saved between sessions',
                       style: TextStyle(color: Colors.grey[500]),
                     ),
                     value: _saveChatHistory,
@@ -242,7 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
                     ),
-                    child: const Text('Видалити всі чати'),
+                    child: const Text('Delete all chats'),
                   ),
                 ],
               ),
@@ -256,7 +259,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            child: const Text('Зберегти налаштування'),
+            child: const Text('Save Settings'),
           ),
         ],
       ),
