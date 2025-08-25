@@ -153,7 +153,7 @@ char* llama_dart_generate(llama_dart_context* ctx, llama_dart_tokens* tokens, ll
 
         llama_batch batch = llama_batch_init(input_tokens.size(), 0, 1);
         for (size_t i = 0; i < input_tokens.size(); ++i) {
-            llama_batch_add(batch, input_tokens[i], i, { 0 }, true);
+            common_batch_add(batch, input_tokens[i], i, { 0 }, true);
         }
 
         // Evaluate the initial prompt
@@ -176,19 +176,27 @@ char* llama_dart_generate(llama_dart_context* ctx, llama_dart_tokens* tokens, ll
             for (llama_token token_id = 0; token_id < llama_vocab_n_tokens(vocab); ++token_id) {
                 candidates.push_back({token_id, logits[token_id], 0.0f});
             }
-            llama_token_data_array candidates_p = { candidates.data(), candidates.size(), false };
 
-            llama_token new_token = llama_sample_token_greedy(llama_ctx, &candidates_p);
+            llama_token new_token = 0;
+            float max_logit = -1.0f / 0.0f; // Negative infinity
+            for (size_t i = 0; i < candidates.size(); ++i) {
+                if (candidates[i].logit > max_logit) {
+                    max_logit = candidates[i].logit;
+                    new_token = candidates[i].id;
+                }
+            }
 
             if (new_token == eos_token) {
                 break;
             }
 
-            result_text += llama_token_to_piece(vocab, new_token);
+            char piece[8] = {0};
+            llama_token_to_piece(vocab, new_token, piece, sizeof(piece), 0, false);
+            result_text += piece;
 
             // Prepare the next batch
             batch = llama_batch_init(1, 0, 1);
-            llama_batch_add(batch, new_token, input_tokens.size() + i, { 0 }, true);
+            common_batch_add(batch, new_token, input_tokens.size() + i, { 0 }, true);
             if (llama_decode(llama_ctx, batch) != 0) {
                 LOGE("Failed to eval new token");
                 llama_batch_free(batch);
