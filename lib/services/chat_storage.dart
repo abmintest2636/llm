@@ -6,9 +6,18 @@ import '../models/chat_model.dart';
 class ChatStorage extends ChangeNotifier {
   late Database _database;
   List<Chat> _chats = [];
+  Chat? _currentChat;
   
   List<Chat> get chats => _chats.where((chat) => !chat.isArchived).toList();
   List<Chat> get archivedChats => _chats.where((chat) => chat.isArchived).toList();
+  Chat? get currentChat => _currentChat;
+
+  void setCurrentChat(Chat? chat) {
+    if (_currentChat != chat) {
+      _currentChat = chat;
+      notifyListeners();
+    }
+  }
 
   Future<void> init() async {
     final dbPath = await getDatabasesPath();
@@ -49,6 +58,12 @@ class ChatStorage extends ChangeNotifier {
       _chats.add(chat.copyWith(messages: messages));
     }
     
+    if (chats.isNotEmpty) {
+      _currentChat = chats.first;
+    } else {
+      _currentChat = null;
+    }
+
     notifyListeners();
   }
 
@@ -74,7 +89,7 @@ class ChatStorage extends ChangeNotifier {
     );
     
     _chats.add(chat);
-    notifyListeners();
+    setCurrentChat(chat); // Set the new chat as current
     
     return chat;
   }
@@ -128,7 +143,7 @@ class ChatStorage extends ChangeNotifier {
       whereArgs: [messageId],
     );
     
-    // Оновлюємо повідомлення в пам'яті
+    // Update the message in memory
     for (int i = 0; i < _chats.length; i++) {
       final chat = _chats[i];
       for (int j = 0; j < chat.messages.length; j++) {
@@ -161,6 +176,9 @@ class ChatStorage extends ChangeNotifier {
     );
     
     _chats.removeWhere((c) => c.id == chatId);
+    if (_currentChat?.id == chatId) {
+      setCurrentChat(chats.isNotEmpty ? chats.first : null);
+    }
     notifyListeners();
   }
 
@@ -175,6 +193,9 @@ class ChatStorage extends ChangeNotifier {
     final chatIndex = _chats.indexWhere((c) => c.id == chatId);
     if (chatIndex != -1) {
       _chats[chatIndex] = _chats[chatIndex].copyWith(isArchived: archive);
+      if (_currentChat?.id == chatId) {
+        setCurrentChat(chats.isNotEmpty ? chats.first : null);
+      }
       notifyListeners();
     }
   }

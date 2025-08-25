@@ -8,14 +8,10 @@ class ModelsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Моделі LLM'),
-      ),
-      body: Consumer<ModelManager>(
-        builder: (context, modelManager, child) {
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
+    return Consumer<ModelManager>(
+      builder: (context, modelManager, child) {
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
             itemCount: modelManager.models.length,
             itemBuilder: (context, index) {
               final model = modelManager.models[index];
@@ -89,7 +85,7 @@ class ModelCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Text(
-                      'Активна',
+                      'Active',
                       style: TextStyle(
                         color: Colors.green,
                         fontSize: 12,
@@ -102,7 +98,7 @@ class ModelCard extends StatelessWidget {
             Text(model.description),
             const SizedBox(height: 12),
             
-            // Прогрес завантаження
+            // Download progress
             if (model.status == ModelStatus.downloading)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,14 +110,14 @@ class ModelCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Завантаження: ${(model.downloadProgress * 100).toInt()}%',
+                    'Downloading: ${(model.downloadProgress * 100).toInt()}%',
                     style: TextStyle(color: Colors.grey[400], fontSize: 12),
                   ),
                   const SizedBox(height: 12),
                 ],
               ),
             
-            // Кнопки
+            // Buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -130,7 +126,7 @@ class ModelCard extends StatelessWidget {
                     onPressed: () async {
                       await modelManager.deleteModel(model.id);
                     },
-                    child: const Text('Видалити'),
+                    child: const Text('Delete'),
                   ),
                 const SizedBox(width: 8),
                 if (model.status == ModelStatus.notDownloaded || model.status == ModelStatus.error)
@@ -138,24 +134,24 @@ class ModelCard extends StatelessWidget {
                     onPressed: () async {
                       await modelManager.downloadModel(model.id);
                     },
-                    child: const Text('Завантажити'),
+                    child: const Text('Download'),
                   ),
                 if (model.status == ModelStatus.downloading)
                   const ElevatedButton(
                     onPressed: null,
-                    child: Text('Завантаження...'),
+                    child: Text('Downloading...'),
                   ),
                 if (model.status == ModelStatus.downloaded)
                   ElevatedButton(
                     onPressed: () async {
                       await modelManager.setActiveModel(model.id);
                     },
-                    child: const Text('Активувати'),
+                    child: const Text('Activate'),
                   ),
                 if (model.status == ModelStatus.active)
                   const ElevatedButton(
                     onPressed: null,
-                    child: Text('Активна'),
+                    child: Text('Active'),
                   ),
               ],
             ),

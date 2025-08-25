@@ -8,13 +8,9 @@ class InfoScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Про додаток'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 16),
@@ -36,7 +32,7 @@ class InfoScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Версія 1.0.0',
+                    'Version 1.0.0',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey[400],
@@ -53,7 +49,7 @@ class InfoScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Про додаток',
+                      'About the App',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -61,11 +57,11 @@ class InfoScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 16),
                     Text(
-                      'Local LLM Chat - це додаток для спілкування з великими мовними моделями (LLM) локально на вашому пристрої, без передачі даних в інтернет.',
+                      'Local LLM Chat is an application for communicating with large language models (LLMs) locally on your device, without sending data to the internet.',
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Додаток використовує оптимізовані моделі, які працюють повністю на вашому пристрої, забезпечуючи приватність та можливість використання без підключення до інтернету.',
+                      'The application uses optimized models that run entirely on your device, ensuring privacy and the ability to use it without an internet connection.',
                     ),
                   ],
                 ),
@@ -79,7 +75,7 @@ class InfoScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Доступні моделі',
+                      'Available Models',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -115,7 +111,7 @@ class InfoScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Технології',
+                      'Technologies',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -125,17 +121,17 @@ class InfoScreen extends StatelessWidget {
                     ListTile(
                       leading: Icon(Icons.flutter_dash),
                       title: Text('Flutter'),
-                      subtitle: Text('Фреймворк для розробки кросплатформенних додатків'),
+                      subtitle: Text('Framework for developing cross-platform applications'),
                     ),
                     ListTile(
                       leading: Icon(Icons.code),
                       title: Text('llama.cpp'),
-                      subtitle: Text('Бібліотека для запуску LLM-моделей на пристроях з обмеженими ресурсами'),
+                      subtitle: Text('Library for running LLM models on devices with limited resources'),
                     ),
                     ListTile(
                       leading: Icon(Icons.memory),
                       title: Text('Quantization'),
-                      subtitle: Text('Технологія для зменшення розміру моделей зі збереженням продуктивності'),
+                      subtitle: Text('Technology for reducing model size while maintaining performance'),
                     ),
                   ],
                 ),
@@ -149,7 +145,7 @@ class InfoScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ліцензія',
+                      'License',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -157,15 +153,15 @@ class InfoScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 16),
                     Text(
-                      'Цей додаток розповсюджується під ліцензією MIT. Моделі мають свої окремі ліцензії та умови використання.',
+                      'This application is distributed under the MIT license. The models have their own separate licenses and terms of use.',
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Gemma - © 2024 Google, розповсюджується під ліцензією Gemma Terms.',
+                      'Gemma - © 2024 Google, distributed under the Gemma Terms license.',
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Phi - © 2024 Microsoft, розповсюджується під ліцензією Microsoft Phi License.',
+                      'Phi - © 2024 Microsoft, distributed under the Microsoft Phi License.',
                     ),
                   ],
                 ),
