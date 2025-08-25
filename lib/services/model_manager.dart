@@ -241,8 +241,6 @@ class ModelManager extends ChangeNotifier {
     notifyListeners();
 
     // Load the model into the LLM service
-    final modelsDir = await _getModelsDirectory();
-    final modelPath = '${modelsDir.path}/${model.id}.bin';
     final success = await llmService.loadModel(model);
 
     if (!success) {
