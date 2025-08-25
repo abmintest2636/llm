@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
@@ -9,6 +10,7 @@ class ModelManager extends ChangeNotifier {
   List<LlmModel> _models = [];
   String? _activeModelId;
   late SharedPreferences _prefs;
+  final Map<String, StreamSubscription> _downloadSubscriptions = {};
   
   List<LlmModel> get models => _models;
   
@@ -41,6 +43,14 @@ class ModelManager extends ChangeNotifier {
         description: 'A 3.8B parameter, lightweight, state-of-the-art open model from Microsoft.',
         url: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf?download=true',
         size: 2390000000, // ~2.39 GB
+        quantization: QuantizationType.bit4,
+      ),
+      LlmModel(
+        id: 'tiny-llm-q5_k_m',
+        name: 'TinyLLM (Q5_K_M)',
+        description: 'A very small model for testing purposes.',
+        url: 'https://huggingface.co/aimlresearch2023/Tiny-LLM-Q5_K_M-GGUF/resolve/main/tiny-llm-q5_k_m.gguf?download=true',
+        size: 12400000, // ~12.4 MB
         quantization: QuantizationType.bit4,
       ),
     ];
@@ -104,7 +114,7 @@ class ModelManager extends ChangeNotifier {
         final sink = modelFile.openWrite();
         int received = 0;
         
-        final subscription = response.stream.listen(
+        _downloadSubscriptions[modelId] = response.stream.listen(
           (chunk) {
             sink.add(chunk);
             received += chunk.length;
@@ -119,11 +129,19 @@ class ModelManager extends ChangeNotifier {
             }
           },
           onDone: () async {
+            _models[modelIndex] = model.copyWith(
+              status: ModelStatus.finalizing,
+              downloadProgress: 1.0,
+            );
+            notifyListeners();
+
             await sink.close();
+
             _models[modelIndex] = model.copyWith(
               status: ModelStatus.downloaded,
               downloadProgress: 1.0,
             );
+            _downloadSubscriptions.remove(modelId);
             notifyListeners();
           },
           onError: (_) async {
@@ -132,13 +150,11 @@ class ModelManager extends ChangeNotifier {
             _models[modelIndex] = model.copyWith(
               status: ModelStatus.error,
             );
+            _downloadSubscriptions.remove(modelId);
             notifyListeners();
           },
           cancelOnError: true,
         );
-        
-        // Wait for the download to complete
-        await subscription.asFuture();
       } else {
         _models[modelIndex] = model.copyWith(
           status: ModelStatus.error,
@@ -151,6 +167,30 @@ class ModelManager extends ChangeNotifier {
       );
       notifyListeners();
       rethrow;
+    }
+  }
+
+  Future<void> cancelDownload(String modelId) async {
+    final subscription = _downloadSubscriptions[modelId];
+    if (subscription != null) {
+      await subscription.cancel();
+      _downloadSubscriptions.remove(modelId);
+
+      // Clean up partial file
+      final modelIndex = _models.indexWhere((m) => m.id == modelId);
+      if (modelIndex != -1) {
+        final model = _models[modelIndex];
+        final modelsDir = await _getModelsDirectory();
+        final modelFile = File('${modelsDir.path}/${model.id}.bin');
+        if (await modelFile.exists()) {
+          await modelFile.delete();
+        }
+        _models[modelIndex] = model.copyWith(
+          status: ModelStatus.notDownloaded,
+          downloadProgress: 0.0,
+        );
+        notifyListeners();
+      }
     }
   }
   

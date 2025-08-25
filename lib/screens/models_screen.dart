@@ -99,7 +99,7 @@ class ModelCard extends StatelessWidget {
             const SizedBox(height: 12),
             
             // Download progress
-            if (model.status == ModelStatus.downloading)
+            if (model.status == ModelStatus.downloading || model.status == ModelStatus.finalizing)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -110,7 +110,9 @@ class ModelCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Downloading: ${(model.downloadProgress * 100).toInt()}%',
+                    model.status == ModelStatus.downloading
+                      ? 'Downloading: ${(model.downloadProgress * 100).toInt()}%'
+                      : 'Finalizing...',
                     style: TextStyle(color: Colors.grey[400], fontSize: 12),
                   ),
                   const SizedBox(height: 12),
@@ -137,9 +139,19 @@ class ModelCard extends StatelessWidget {
                     child: const Text('Download'),
                   ),
                 if (model.status == ModelStatus.downloading)
+                  ElevatedButton(
+                    onPressed: () async {
+                      await modelManager.cancelDownload(model.id);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                if (model.status == ModelStatus.finalizing)
                   const ElevatedButton(
                     onPressed: null,
-                    child: Text('Downloading...'),
+                    child: Text('Finalizing...'),
                   ),
                 if (model.status == ModelStatus.downloaded)
                   ElevatedButton(
