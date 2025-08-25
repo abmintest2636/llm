@@ -11,9 +11,10 @@ fi
 # Директорія проекту
 PROJECT_DIR=$(pwd)
 
-# Клонування llama.cpp якщо він не існує
-if [ ! -d "android/app/src/main/cpp/llama.cpp" ]; then
-  echo "Cloning llama.cpp..."
+# Clone llama.cpp if it doesn't exist
+if [ ! -f "android/app/src/main/cpp/llama.cpp/llama.h" ]; then
+  echo "llama.h not found, cloning llama.cpp..."
+  rm -rf android/app/src/main/cpp/llama.cpp
   git clone https://github.com/ggerganov/llama.cpp.git android/app/src/main/cpp/llama.cpp
   cd android/app/src/main/cpp/llama.cpp
   git checkout master
