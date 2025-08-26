@@ -13,7 +13,7 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-// Глобальні змінні для керування моделями та контекстами
+// Global variables to manage models and contexts
 static std::map<int32_t, llama_model*> g_models;
 static std::map<int64_t, llama_context*> g_contexts;
 static int32_t g_next_model_id = 1;
@@ -26,16 +26,13 @@ int32_t llama_dart_load_model(const char* path, llama_dart_model_params* params)
     try {
         LOGI("Loading model from: %s", path);
         
-        // Ініціалізація backend
         llama_backend_init();
         
-        // Конвертація параметрів для старої версії
         llama_model_params model_params = llama_model_default_params();
         model_params.n_gpu_layers = params->nGpuLayers;
-        model_params.use_mlock = false;  // Для Android
+        model_params.use_mlock = false;
         model_params.use_mmap = true;
         
-        // Завантаження моделі
         llama_model* model = llama_load_model_from_file(path, model_params);
         if (!model) {
             LOGE("Failed to load model from: %s", path);
@@ -63,7 +60,7 @@ llama_dart_context* llama_dart_create_context(int32_t model_id) {
         }
         
         llama_context_params ctx_params = llama_context_default_params();
-        ctx_params.n_ctx = 2048;  // Контекст
+        ctx_params.n_ctx = 2048;
         ctx_params.n_batch = 512;
         ctx_params.n_threads = 4;
         
@@ -102,16 +99,16 @@ llama_dart_tokens* llama_dart_tokenize(llama_dart_context* ctx, const char* text
         }
 
         llama_context* llama_ctx = it->second;
+        const llama_model* model = llama_get_model(llama_ctx);
+        const llama_vocab* vocab = llama_get_vocab(model);
 
-        // Add a space in front of the prompt as per llama.cpp recommendation
         std::string text_str = " " + std::string(text);
         
-        // Max tokens can be the length of the text + some buffer
         int n_max_tokens = text_str.length() + 256;
         std::vector<llama_token> tokens(n_max_tokens);
 
-        // Tokenize
-        int n_tokens = llama_tokenize(llama_ctx, text_str.c_str(), tokens.data(), n_max_tokens, true);
+        // Using vocab-based tokenize based on user's compiler errors
+        int n_tokens = llama_tokenize(vocab, text_str.c_str(), text_str.length(), tokens.data(), n_max_tokens, true, false);
 
         if (n_tokens < 0) {
             LOGE("Failed to tokenize text. Result was %d", n_tokens);
@@ -121,12 +118,10 @@ llama_dart_tokens* llama_dart_tokenize(llama_dart_context* ctx, const char* text
             return result;
         }
 
-        // Create result struct
         llama_dart_tokens* result = new llama_dart_tokens();
         result->nTokens = n_tokens;
         result->tokens = new int32_t[n_tokens];
         
-        // Copy tokens
         std::copy(tokens.begin(), tokens.begin() + n_tokens, result->tokens);
 
         LOGI("Tokenized text into %d tokens", n_tokens);
@@ -151,6 +146,8 @@ char* llama_dart_generate(llama_dart_context* ctx, llama_dart_tokens* tokens, ll
             return nullptr;
         }
         llama_context* llama_ctx = it->second;
+        const llama_model* model = llama_get_model(llama_ctx);
+        const llama_vocab* vocab = llama_get_vocab(model);
 
         if (tokens->nTokens == 0) {
             char* output = new char[1];
@@ -160,9 +157,10 @@ char* llama_dart_generate(llama_dart_context* ctx, llama_dart_tokens* tokens, ll
 
         int n_threads = 4;
 
+        // Reverting to llama_eval, assuming it's the correct function
         if (llama_eval(llama_ctx, tokens->tokens, tokens->nTokens, 0, n_threads)) {
             LOGE("Failed to eval prompt");
-            const char* err_msg = "Failed to evaluate prompt.";
+            const char* err_msg = "Failed to eval prompt.";
             char* output = new char[strlen(err_msg) + 1];
             strcpy(output, err_msg);
             return output;
@@ -173,8 +171,8 @@ char* llama_dart_generate(llama_dart_context* ctx, llama_dart_tokens* tokens, ll
         int n_past = tokens->nTokens;
         const int max_new_tokens = params->maxTokens;
         
-        const auto eos_token_id = llama_token_eos();
-        const auto n_vocab = llama_n_vocab(llama_ctx);
+        const auto eos_token_id = llama_token_eos(vocab);
+        const auto n_vocab = llama_n_vocab(vocab);
 
         for (int i = 0; i < max_new_tokens; i++) {
             auto logits = llama_get_logits(llama_ctx);
@@ -192,7 +190,7 @@ char* llama_dart_generate(llama_dart_context* ctx, llama_dart_tokens* tokens, ll
                 break;
             }
 
-            const char* token_str = llama_token_get_text(llama_ctx, new_token_id);
+            const char* token_str = llama_token_get_text(vocab, new_token_id);
             if (token_str) {
                 result_text += token_str;
             }
