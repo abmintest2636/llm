@@ -148,6 +148,11 @@ class ModelCard extends StatelessWidget {
                     onPressed: null,
                     child: Text('Finalizing...'),
                   ),
+                if (model.status == ModelStatus.activating)
+                  const ElevatedButton(
+                    onPressed: null,
+                    child: Text('Activating...'),
+                  ),
                 if (model.status == ModelStatus.downloaded)
                   ElevatedButton(
                     onPressed: () async {

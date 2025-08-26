@@ -3,6 +3,7 @@ enum ModelStatus {
   downloading,
   finalizing,
   downloaded,
+  activating,
   active,
   error,
 }
@@ -17,7 +18,7 @@ class LlmModel {
   final String name;
   final String description;
   final String url;
-  final int size; // в байтах
+  final int size; // in bytes
   final ModelStatus status;
   final double downloadProgress;
   final QuantizationType quantization;

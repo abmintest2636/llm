@@ -16,11 +16,11 @@ void main() async {
   final chatStorage = ChatStorage();
   await chatStorage.init();
   
-  final modelManager = ModelManager();
-  await modelManager.init();
-  
   final llmService = LlmService();
   await llmService.init();
+
+  final modelManager = ModelManager(llmService: llmService);
+  await modelManager.init();
   
   runApp(
     MultiProvider(
