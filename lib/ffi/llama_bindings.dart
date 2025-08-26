@@ -10,7 +10,7 @@ class LlamaBindings {
   
   late DynamicLibrary _lib;
   
-  // FFI functions with correct types matching the native bindings
+  // FFI функції з правильними типами
   late final int Function(Pointer<Utf8>, Pointer<LlamaDartModelParams>) _loadModelFn;
   late final Pointer<LlamaDartContext> Function(int) _createContextFn;
   late final Pointer<LlamaDartTokens> Function(Pointer<LlamaDartContext>, Pointer<Utf8>) _tokenizeFn;
@@ -29,10 +29,10 @@ class LlamaBindings {
       try {
         _lib = DynamicLibrary.open('libllama_bindings.so');
       } catch (e) {
-        throw Exception('Failed to load native library: $e');
+        throw Exception('Не вдалось завантажити нативну бібліотеку: $e');
       }
     } else {
-      throw UnsupportedError('Only Android platform is supported');
+      throw UnsupportedError('Підтримується лише Android платформа');
     }
   }
   
@@ -73,7 +73,7 @@ class LlamaBindings {
         void Function(Pointer<Utf8>)
       >('llama_dart_free_string');
     } catch (e) {
-      throw Exception('Failed to initialize FFI functions: $e');
+      throw Exception('Не вдалось ініціалізувати FFI функції: $e');
     }
   }
   
@@ -96,7 +96,7 @@ class LlamaBindings {
     try {
       return _loadModelFn(pathPtr, params);
     } catch (e) {
-      throw Exception('Error loading model: $e');
+      throw Exception('Помилка завантаження моделі: $e');
     } finally {
       calloc.free(pathPtr);
       calloc.free(params);
@@ -107,7 +107,7 @@ class LlamaBindings {
     try {
       return _createContextFn(modelId);
     } catch (e) {
-      throw Exception('Error creating context: $e');
+      throw Exception('Помилка створення контексту: $e');
     }
   }
   
@@ -116,7 +116,7 @@ class LlamaBindings {
     try {
       return _tokenizeFn(context, textPtr);
     } catch (e) {
-      throw Exception('Error tokenizing text: $e');
+      throw Exception('Помилка токенізації: $e');
     } finally {
       calloc.free(textPtr);
     }
@@ -149,7 +149,7 @@ class LlamaBindings {
       _freeStringFn(resultPtr);
       return result;
     } catch (e) {
-      throw Exception('Error generating text: $e');
+      throw Exception('Помилка генерації тексту: $e');
     } finally {
       calloc.free(params);
     }
@@ -160,7 +160,7 @@ class LlamaBindings {
       _freeContextFn(context);
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Warning: failed to free context: $e');
+        debugPrint('Попередження: не вдалось звільнити контекст: $e');
       }
     }
   }
@@ -170,7 +170,7 @@ class LlamaBindings {
       _freeTokensFn(tokens);
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Warning: failed to free tokens: $e');
+        debugPrint('Попередження: не вдалось звільнити токени: $e');
       }
     }
   }

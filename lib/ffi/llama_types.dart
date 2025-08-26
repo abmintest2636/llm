@@ -1,15 +1,13 @@
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 
-// Dart FFI type definitions matching llama_bindings.h
-
-// Context handle
+// Структура для контексту (відповідає llama_dart_context в C++)
 final class LlamaDartContext extends Struct {
   @Int64()
   external int handle;
 }
 
-// Inference parameters
+// Структура для параметрів інференсу (відповідає llama_dart_inference_params в C++)
 final class LlamaDartInferenceParams extends Struct {
   @Int32()
   external int maxTokens;
@@ -33,7 +31,7 @@ final class LlamaDartInferenceParams extends Struct {
   external double presencePenalty;
 }
 
-// Tokenized text
+// Структура для токенізованого тексту (відповідає llama_dart_tokens в C++)
 final class LlamaDartTokens extends Struct {
   external Pointer<Int32> tokens;
   
@@ -41,7 +39,7 @@ final class LlamaDartTokens extends Struct {
   external int nTokens;
 }
 
-// Model loading parameters
+// Параметри для завантаження моделі (відповідає llama_dart_model_params в C++)
 final class LlamaDartModelParams extends Struct {
   @Int32()
   external int nGpuLayers;
@@ -59,6 +57,6 @@ final class LlamaDartModelParams extends Struct {
   external int nBatch;
 }
 
-// Progress callback function types
-typedef LlamaDartProgressCallbackNative = Void Function(Int32 tokenId, Pointer<Utf8> piece);
-typedef LlamaDartProgressCallback = void Function(int tokenId, Pointer<Utf8> piece);
+// Колбек для звітування про генерацію тексту
+typedef LlamaProgressCallbackNative = Void Function(Int32 tokenId, Pointer<Utf8> piece);
+typedef LlamaProgressCallback = void Function(int tokenId, Pointer<Utf8> piece);
