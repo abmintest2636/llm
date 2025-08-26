@@ -154,6 +154,10 @@ target_compile_definitions(llama PRIVATE
     GGML_USE_CPU
     GGML_VERSION="0.0.0"
     GGML_COMMIT="unknown"
+    LLAMA_BUILD_NUMBER=1
+    LLAMA_COMMIT="unknown"
+    LLAMA_COMPILER="unknown"
+    LLAMA_BUILD_TARGET="unknown"
 )
 
 # Compiler flags
