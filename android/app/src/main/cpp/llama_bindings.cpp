@@ -94,65 +94,44 @@ llama_dart_tokens* llama_dart_tokenize(llama_dart_context* ctx, const char* text
             LOGE("Invalid parameters for tokenization");
             return nullptr;
         }
-        
+
         auto it = g_contexts.find(ctx->handle);
         if (it == g_contexts.end()) {
             LOGE("Context handle %ld not found", ctx->handle);
             return nullptr;
         }
-        
+
         llama_context* llama_ctx = it->second;
+
+        // Add a space in front of the prompt as per llama.cpp recommendation
+        std::string text_str = " " + std::string(text);
         
-        // Для дуже старої версії API - використовуємо найпростіший підхід
-        std::vector<llama_token> tokens;
-        size_t text_len = strlen(text);
-        tokens.resize(text_len * 2 + 256); // Достатньо великий буфер
-        
-        // Спробуємо токенізацію з мінімальними параметрами
-        // Це може потребувати налаштування залежно від точної версії API
-        int n_tokens = 0;
-        
-        // Якщо llama_tokenize не працює, створимо заглушку
-        if (text_len > 0) {
-            // Проста заглушка - розбиваємо по словах
-            std::string text_str(text);
-            std::vector<std::string> words;
-            std::string word;
-            
-            for (char c : text_str) {
-                if (c == ' ' || c == '\t' || c == '\n') {
-                    if (!word.empty()) {
-                        words.push_back(word);
-                        word.clear();
-                    }
-                } else {
-                    word += c;
-                }
-            }
-            if (!word.empty()) {
-                words.push_back(word);
-            }
-            
-            n_tokens = words.size() + 1; // +1 for BOS token
+        // Max tokens can be the length of the text + some buffer
+        int n_max_tokens = text_str.length() + 256;
+        std::vector<llama_token> tokens(n_max_tokens);
+
+        // Tokenize
+        int n_tokens = llama_tokenize(llama_ctx, text_str.c_str(), tokens.data(), n_max_tokens, true);
+
+        if (n_tokens < 0) {
+            LOGE("Failed to tokenize text. Result was %d", n_tokens);
+            llama_dart_tokens* result = new llama_dart_tokens();
+            result->nTokens = 0;
+            result->tokens = nullptr;
+            return result;
         }
-        
-        if (n_tokens <= 0) {
-            n_tokens = 1; // Мінімум один токен
-        }
-        
-        // Створення результату
+
+        // Create result struct
         llama_dart_tokens* result = new llama_dart_tokens();
         result->nTokens = n_tokens;
         result->tokens = new int32_t[n_tokens];
         
-        // Заповнюємо заглушковими токенами
-        for (int i = 0; i < n_tokens; i++) {
-            result->tokens[i] = i + 1; // Простий ID токену
-        }
-        
-        LOGI("Tokenized text into %d tokens (placeholder)", n_tokens);
+        // Copy tokens
+        std::copy(tokens.begin(), tokens.begin() + n_tokens, result->tokens);
+
+        LOGI("Tokenized text into %d tokens", n_tokens);
         return result;
-        
+
     } catch (const std::exception& e) {
         LOGE("Exception in llama_dart_tokenize: %s", e.what());
         return nullptr;
@@ -165,54 +144,78 @@ char* llama_dart_generate(llama_dart_context* ctx, llama_dart_tokens* tokens, ll
             LOGE("Invalid parameters for generation");
             return nullptr;
         }
-        
+
         auto it = g_contexts.find(ctx->handle);
         if (it == g_contexts.end()) {
             LOGE("Context handle %ld not found", ctx->handle);
             return nullptr;
         }
-        
         llama_context* llama_ctx = it->second;
-        
-        // Мінімальна генерація для старої версії API
+
+        if (tokens->nTokens == 0) {
+            char* output = new char[1];
+            output[0] = '\0';
+            return output;
+        }
+
+        int n_threads = 4;
+
+        if (llama_eval(llama_ctx, tokens->tokens, tokens->nTokens, 0, n_threads)) {
+            LOGE("Failed to eval prompt");
+            const char* err_msg = "Failed to evaluate prompt.";
+            char* output = new char[strlen(err_msg) + 1];
+            strcpy(output, err_msg);
+            return output;
+        }
+
         std::string result_text;
+        llama_token new_token_id = 0;
+        int n_past = tokens->nTokens;
+        const int max_new_tokens = params->maxTokens;
         
-        // Спробуємо справжню генерацію якщо API дозволяє
-        bool success = false;
-        
-        try {
-            // Простий підхід - створюємо вектор токенів
-            std::vector<llama_token> input_tokens;
-            for (int i = 0; i < tokens->nTokens; i++) {
-                input_tokens.push_back(tokens->tokens[i]);
+        const auto eos_token_id = llama_token_eos();
+        const auto n_vocab = llama_n_vocab(llama_ctx);
+
+        for (int i = 0; i < max_new_tokens; i++) {
+            auto logits = llama_get_logits(llama_ctx);
+
+            new_token_id = 0;
+            float max_p = -1.0f;
+            for (int j = 0; j < n_vocab; j++) {
+                if (logits[j] > max_p) {
+                    max_p = logits[j];
+                    new_token_id = j;
+                }
             }
-            
-            // Якщо llama_eval доступний
-            // int ret = llama_eval(llama_ctx, input_tokens.data(), input_tokens.size(), 0, 4);
-            
-            // Для простоти створюємо заглушку
-            result_text = "AI Response: This is a generated response based on your input. ";
-            result_text += "Processed " + std::to_string(tokens->nTokens) + " tokens with temperature " + std::to_string(params->temperature) + ".";
-            success = true;
-            
-        } catch (...) {
-            LOGE("Failed to use llama API, falling back to placeholder");
+
+            if (new_token_id == eos_token_id) {
+                break;
+            }
+
+            const char* token_str = llama_token_get_text(llama_ctx, new_token_id);
+            if (token_str) {
+                result_text += token_str;
+            }
+
+            if (llama_eval(llama_ctx, &new_token_id, 1, n_past, n_threads)) {
+                LOGE("Failed to eval new token");
+                break;
+            }
+            n_past += 1;
         }
-        
-        if (!success) {
-            result_text = "Placeholder response - API compatibility issue.";
-        }
-        
-        // Копіювання результату
+
         char* output = new char[result_text.length() + 1];
         std::strcpy(output, result_text.c_str());
-        
-        LOGI("Generated text of length: %zu", result_text.length());
+
+        LOGI("Generated text of length %zu", result_text.length());
         return output;
-        
+
     } catch (const std::exception& e) {
         LOGE("Exception in llama_dart_generate: %s", e.what());
-        return nullptr;
+        const char* err_msg = e.what();
+        char* output = new char[strlen(err_msg) + 1];
+        strcpy(output, err_msg);
+        return output;
     }
 }
 
