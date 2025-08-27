@@ -64,14 +64,20 @@ class LlmService {
     }
   }
   
+  String _formatPrompt(String prompt) {
+    // Застосовуємо ChatML формат для Qwen моделей
+    return "<|im_start|>user\n$prompt<|im_end|>\n<|im_start|>assistant\n";
+  }
+
   Future<String> generateResponse(String prompt, {int maxTokens = 256}) async {
     if (_currentModelId == null || _currentContext == null) {
       throw Exception('Модель не завантажена');
     }
     
     try {
-      // Токенізуємо вхідний текст
-      final tokens = _bindings.tokenize(_currentContext!, prompt);
+      // Форматуємо та токенізуємо вхідний текст
+      final formattedPrompt = _formatPrompt(prompt);
+      final tokens = _bindings.tokenize(_currentContext!, formattedPrompt);
       
       // Генеруємо відповідь
       final result = _bindings.generate(
